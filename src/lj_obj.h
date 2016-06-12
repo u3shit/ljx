@@ -1006,7 +1006,7 @@ static LJ_AINLINE int32_t lj_num2bit(lua_Number n)
 
 static LJ_AINLINE uint64_t lj_num2u64(lua_Number n)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
   if (n >= 9223372036854775808.0)  /* They think it's a feature. */
     return (uint64_t)(int64_t)(n - 18446744073709551616.0);
   else
@@ -1015,7 +1015,7 @@ static LJ_AINLINE uint64_t lj_num2u64(lua_Number n)
 }
 static LJ_AINLINE LUA_UNSIGNED lj_num2u(lua_Number n)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
   if (n >= 9223372036854775808.0)  /* They think it's a feature. */
     return (uint64_t)(int64_t)(n - 18446744073709551616.0);
   else
