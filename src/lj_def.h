@@ -8,7 +8,9 @@
 
 #include "lua.h"
 
-#if defined(_MSC_VER)
+#if defined(__has_include) && __has_include(<stdint.h>)
+#include <stdint.h>
+#elif defined(_MSC_VER)
 /* MSVC is stuck in the last century and doesn't have C99's stdint.h. */
 typedef __int8 int8_t;
 typedef __int16 int16_t;
@@ -126,7 +128,7 @@ typedef uintptr_t BloomFilter;
 #define bloomset(b, x)	((b) |= bloombit((x)))
 #define bloomtest(b, x)	((b) & bloombit((x)))
 
-#if defined(__GNUC__) || defined(__psp2__)
+#if defined(__GNUC__) || defined(__psp2__) || defined(__clang__)
 
 #define LJ_NORET	__attribute__((noreturn))
 #define LJ_ALIGN(n)	__attribute__((aligned(n)))
