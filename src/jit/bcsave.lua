@@ -117,9 +117,18 @@ end
 
 local function bcsave_c(ctx, output, s)
   local fp = savefile(output, "w")
+  fp:write([[
+#ifndef luaJIT_CAST
+#ifdef __cplusplus
+#define luaJIT_CAST(x) static_cast<char>(x)
+#else
+#define luaJIT_CAST(x) (char)(x)
+#endif
+#endif
+]])
   if ctx.type == "c" then
     fp:write(string.format([[
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C"
 #endif
 #ifdef _WIN32
@@ -135,7 +144,15 @@ static const char %s%s[] = {
   end
   local t, n, m = {}, 0, 0
   for i=1,#s do
-    local b = tostring(string.byte(s, i))
+    local rb = string.byte(s, i)
+    local b
+    if rb > 127 then
+      b = string.format("luaJIT_CAST(%d)", rb)
+    elseif rb >= 32 and rb ~= 127 and rb ~= 39 then
+      b = string.format("'%c'", rb)
+    else
+      b = tostring(rb)
+    end
     m = m + #b + 1
     if m > 78 then
       fp:write(table.concat(t, ",", 1, n), ",\n")
