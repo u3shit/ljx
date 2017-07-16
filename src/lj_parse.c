@@ -1185,11 +1185,13 @@ link_uvs:;
     uvres = uvfs->nuv;
     for (; uvfs->prev != frame; uvfs = uvfs->prev) {
       /* Link chain until uvfs->prev = frame. */
+      checklimit(fs, fs->nuv, LJ_MAX_UPVAL, "upvalues");
       uvfs->uvval[uvfs->nuv] = uvfs->prev->nuv | PROTO_UV_CHAINED;
       uvfs->uvcount[uvfs->nuv] = 1;
       uvfs->uvmap[uvfs->nuv++] = vidx;
     }
     /* And put final pointer there. */
+    checklimit(fs, fs->nuv, LJ_MAX_UPVAL, "upvalues");
     uvfs->uvval[uvfs->nuv] = uvidx;
     uvfs->uvmap[uvfs->nuv] = vidx;
     uvfs->uvcount[uvfs->nuv++] = 1;
@@ -1488,6 +1490,11 @@ static void fs_fixup_uv1(FuncState *fs, GCproto *pt, uint16_t *uv)
 stop:;
   /* Lifted? */
   if (p != fs) {
+    /* bail out if this would create too many upvalues */
+    int count = 1;
+    for (t = fs->prev; t != p; t = t->prev) ++count;
+    if (t->nuv + count > LJ_MAX_UPVAL) return;
+
     /* Create uv chain. */
     for (t = fs->prev; t != p; t = t->prev) {
       t->uvcount[t->nuv] = 1;
