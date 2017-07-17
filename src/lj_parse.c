@@ -1490,18 +1490,15 @@ static void fs_fixup_uv1(FuncState *fs, GCproto *pt, uint16_t *uv)
 stop:;
   /* Lifted? */
   if (p != fs) {
-    /* bail out if this would create too many upvalues */
-    int count = 1;
-    for (t = fs->prev; t != p; t = t->prev) ++count;
-    if (t->nuv + count > LJ_MAX_UPVAL) return;
-
     /* Create uv chain. */
     for (t = fs->prev; t != p; t = t->prev) {
+      checklimit(t, t->nuv, LJ_MAX_UPVAL, "upvalues");
       t->uvcount[t->nuv] = 1;
       t->uvmap[t->nuv] = LJ_MAX_VSTACK;
       t->uvval[t->nuv++] = t->prev->nuv | PROTO_UV_CHAINED;
     }
     /* And install the closure. */
+    checklimit(t, t->nuv, LJ_MAX_UPVAL, "upvalues");
     t->uvval[t->nuv] = const_gc(t, obj2gco(pt), LJ_TPROTO) | PROTO_UV_CLOSURE;
     t->uvmap[t->nuv] = LJ_MAX_VSTACK;
     t->uvcount[t->nuv++] = 1;
