@@ -1447,6 +1447,16 @@ static void fs_fixup_k(FuncState *fs, GCproto *pt, void *kptr)
   }
 }
 
+static void fs_fixup_uv1_revert(
+    FuncState *fs, uint16_t *uv, uint8_t **revert_buffer, size_t len)
+{
+  size_t i;
+  for (i = 0; i < len; ++i)
+    revert_buffer[i]++;
+
+  memcpy(uv, fs->uvval, fs->nuv*sizeof(VarIndex));
+}
+
 /* Attempt to lift closures to upper scopes. */
 static void fs_fixup_uv1(FuncState *fs, GCproto *pt, uint16_t *uv)
 {
@@ -1454,6 +1464,9 @@ static void fs_fixup_uv1(FuncState *fs, GCproto *pt, uint16_t *uv)
   uint16_t puv[LJ_MAX_UPVAL];
   FuncState *t,*p = fs;
   int nuv = fs->nuv;
+#define LJ_REVERT_BUFFER_SIZE 128
+  uint8_t* revert_buffer[128];
+  size_t revert_buffer_i = 0;
 
   setmref(pt->uv, uv);
   pt->sizeuv = fs->nuv;
@@ -1463,6 +1476,9 @@ static void fs_fixup_uv1(FuncState *fs, GCproto *pt, uint16_t *uv)
     return;
 
   while (p->prev) {
+    if (p->prev->nuv >= LJ_MAX_UPVAL)
+      return fs_fixup_uv1_revert(fs, uv, revert_buffer, revert_buffer_i);
+
     /* check */
     for (i = 0; i < nuv; i++) {
       if ((uv[i] != PROTO_UV_HOLE) && ((!(uv[i] & PROTO_UV_CHAINED)) && (p->uvcount[i])))
@@ -1479,6 +1495,10 @@ static void fs_fixup_uv1(FuncState *fs, GCproto *pt, uint16_t *uv)
       if (uv[i] == PROTO_UV_HOLE)
         continue;
       if (uv[i] & PROTO_UV_CHAINED) { /* it is chained to prev, resolve */
+        if (revert_buffer_i == LJ_REVERT_BUFFER_SIZE)
+          return fs_fixup_uv1_revert(fs, uv, revert_buffer, revert_buffer_i);
+
+        revert_buffer[revert_buffer_i++] = &p->uvcount[i];
         p->uvcount[i]--;
         uv[i] = p->prev->uvval[uv[i] & PROTO_UV_MASK];
       } else {
@@ -1492,13 +1512,13 @@ stop:;
   if (p != fs) {
     /* Create uv chain. */
     for (t = fs->prev; t != p; t = t->prev) {
-      checklimit(t, t->nuv, LJ_MAX_UPVAL, "upvalues");
+      lua_assert(t->nuv < LJ_MAX_UPVAL);
       t->uvcount[t->nuv] = 1;
       t->uvmap[t->nuv] = LJ_MAX_VSTACK;
       t->uvval[t->nuv++] = t->prev->nuv | PROTO_UV_CHAINED;
     }
     /* And install the closure. */
-    checklimit(t, t->nuv, LJ_MAX_UPVAL, "upvalues");
+    lua_assert(t->nuv < LJ_MAX_UPVAL);
     t->uvval[t->nuv] = const_gc(t, obj2gco(pt), LJ_TPROTO) | PROTO_UV_CLOSURE;
     t->uvmap[t->nuv] = LJ_MAX_VSTACK;
     t->uvcount[t->nuv++] = 1;
