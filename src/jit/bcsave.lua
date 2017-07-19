@@ -137,7 +137,7 @@ static const char %s%s[] = {
   for i=1,#s do
     local rb = string.byte(s, i)
     local b
-    if rb >= 32 and rb < 127 and rb ~= 39 then
+    if rb >= 32 and rb < 127 and rb ~= 39 and rb ~= 92 then
       b = string.format("'%c'", rb)
     else
       b = string.format("'\\%o'", rb)
